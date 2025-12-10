@@ -1,5 +1,5 @@
 use tui::{
-    Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout, Rect}, widgets::{Block, Borders, Paragraph, Widget, Wrap}
+    Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout, Rect}, widgets::{Block, Borders, Paragraph, Wrap}
 };
 
 pub struct UIState {

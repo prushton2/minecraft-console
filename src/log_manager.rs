@@ -16,6 +16,7 @@ pub enum NewLogManagerError {
     UnsupportedMinecraftContainer
 }
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ProcessError {
     UninitializedStruct
 }
@@ -33,7 +34,7 @@ pub fn new(image_name: &str, container_name: &str) -> Result<Box<dyn LogManager>
         }
     }
 }
-
+#[allow(dead_code)]
 pub struct DebugLogManager {
     logs: Vec<String>,
     chat: Vec<String>,
@@ -67,7 +68,7 @@ impl LogManager for DebugLogManager {
         return "".to_string();
     }
     fn send_message(&mut self, message: &str) {
-
+        self.chat.push(message.to_owned());
     }
 }
 
