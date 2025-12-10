@@ -95,10 +95,8 @@ impl ItzgLogManager {
 
 impl LogManager for ItzgLogManager {
     fn process(&mut self) -> Result<(), ProcessError> {
-
         self.chat = vec![];
         self.logs = vec![];
-        self.players = vec![];
 
         self.child = Some(Command::new("docker")
             .args(["logs", &self.container_name])
@@ -116,35 +114,62 @@ impl LogManager for ItzgLogManager {
 
         let log_re = Regex::new(r"\[(.*)\]\s\[(.*)\]:\s(.*)").unwrap(); // log with [time] [sender] message
         let chat_re = Regex::new(r"^(<|\[)([^<>\[\]]+)(>|\]) (.+)$").unwrap();
+        let join_re = Regex::new("(.+) (joined|left) the game").unwrap();
+
         for line in out.split('\n') {
-            // println!("\n{line}");
             // figure out what kind of lof we are dealing with
             let log_captures = log_re.captures(line);
 
             if log_captures.is_none() {
-                // println!("Generic Log");
                 self.logs.push(line.to_owned());
                 continue;
             }
 
             let log_captures = log_captures.unwrap();
-            // println!("Checking {}", log_captures.get(3).unwrap().as_str());
             let chat_captures: Option<Captures<'_>> = chat_re.captures(log_captures.get(3).unwrap().as_str());
 
             if chat_captures.is_none() || chat_captures.as_ref().unwrap().get(2).unwrap().as_str() == "voicechat" {
-                // println!("Basic log");
+                let time = log_captures.get(1).unwrap().as_str();
+                let sender = log_captures.get(2).unwrap().as_str();
+                let content = log_captures.get(3).unwrap().as_str();
                 self.logs.push(
                     format!("[{}] [{}]: {}", 
-                    log_captures.get(1).unwrap().as_str(), 
-                    log_captures.get(2).unwrap().as_str(), 
-                    log_captures.get(3).unwrap().as_str()
+                    time, 
+                    sender, 
+                    content
                 ));
+
+                if sender == "Server thread/INFO" {
+                    let cap = join_re.captures(content);
+                    if cap.is_none() {
+                        continue;
+                    }
+                    let cap = cap.unwrap();
+
+                    let name = cap.get(1).unwrap().as_str().to_owned();
+                    let action = cap.get(2).unwrap().as_str();
+
+                    match action {
+                        "joined" => {
+                            if !self.players.contains(&name) {
+                                self.players.push(name);
+                            }
+                        }
+                        "left" => {
+                            match self.players.iter().position(|c| *c == name) {
+                                Some(n) => {self.players.swap_remove(n);}
+                                None => {}
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                
                 continue;
             }
 
             let chat_captures = chat_captures.unwrap();
 
-            // println!("Chat message");
             self.chat.push(
                 format!("{}{}{}: {}", 
                 chat_captures.get(1).unwrap().as_str(), 
@@ -153,30 +178,6 @@ impl LogManager for ItzgLogManager {
                 chat_captures.get(4).unwrap().as_str()
             ));
         }
-
-        let mut child = Command::new("docker")
-            .args(["exec", "-it", &self.container_name, "rcon-cli", "list"])
-            .stdout(Stdio::piped())
-            .stdout(Stdio::piped())
-            .spawn()
-            .unwrap();
-
-        let stdout = child.stdout.take().expect("Failed to capture stdout");
-        let mut out_reader = BufReader::new(stdout);
-        let mut out: String = String::from("");
-        let _ = out_reader.read_to_string(&mut out);
-
-        // println!("|{out}|");
-
-        let re = Regex::new(r"There are ([0-9]*) of a max of ([0-9]*) players online:( (.+)|)").unwrap();
-        let captures = re.captures(&out).unwrap();
-
-        self.players.push(format!("{}/{}", captures.get(1).unwrap().as_str(), captures.get(2).unwrap().as_str()));
-
-        for player in captures.get(3).unwrap().as_str().split(", ") {
-            self.players.push(player.to_owned());
-        }
-
         return Ok(())
     }
     fn get_chat(&self) -> Vec<String> {
