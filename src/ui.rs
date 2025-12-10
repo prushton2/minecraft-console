@@ -46,8 +46,8 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
         )
         .split(chunks[1]);
 
-    let logs = create_scrolling_paragraph_block(&state.logs.join("\n"), &left_inner_chunks[0], state.horizontal_scroll);
-    let chat = create_scrolling_paragraph_block(&state.chat.join("\n"), &left_inner_chunks[1], state.horizontal_scroll);
+    let logs = create_scrolling_paragraph_block("Logs".to_owned(), &state.logs.join("\n"), &left_inner_chunks[0], state.horizontal_scroll);
+    let chat = create_scrolling_paragraph_block("Chat".to_owned(),&state.chat.join("\n"), &left_inner_chunks[1], state.horizontal_scroll);
     
 
     let player_list_block = Block::default()
@@ -82,13 +82,13 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
     f.render_widget(message, left_inner_chunks[2]);
 }
 
-fn create_scrolling_paragraph_block(content: &String, area: &Rect, horizontal_scroll: u16) -> Paragraph<'static> {
+fn create_scrolling_paragraph_block(title: String, content: &String, area: &Rect, horizontal_scroll: u16) -> Paragraph<'static> {
     let block = Block::default()
-        .title("Chat")
+        .title(title)
         .borders(Borders::ALL);
 
     let block_lines = block.inner(*area).height as i16;
-    let mut content_lines: i16 = 0;
+    let mut content_lines: i16 = 1;
     content.chars().for_each(|c| {if c == '\n' { content_lines += 1;} else {}});
 
     let chat_scroll_offset = (content_lines - block_lines).max(0);
