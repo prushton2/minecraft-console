@@ -1,12 +1,14 @@
 use tui::{
-    Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout}, widgets::{Block, Borders, Paragraph, Wrap}
+    Frame, backend::Backend, layout::{Alignment, Constraint, Direction, Layout, Rect}, widgets::{Block, Borders, Paragraph, Widget, Wrap}
 };
 
-pub struct UIState<'a> {
-    pub players: Vec<&'a str>,
-    pub logs: Vec<&'a str>,
-    pub chat: Vec<&'a str>,
-    pub message_box: String
+pub struct UIState {
+    pub players: Vec<String>,
+    pub logs: Vec<String>,
+    pub chat: Vec<String>,
+    pub message_box: String,
+    pub stdout: String,
+    pub horizontal_scroll: u16
 }
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
@@ -21,7 +23,7 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
         )
         .split(f.size());
 
-    let inner_chunks = Layout::default()
+    let left_inner_chunks = Layout::default()
         .direction(Direction::Vertical)
         .horizontal_margin(1)
         .constraints(
@@ -33,57 +35,69 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
         )
         .split(chunks[0]);
 
+    let right_inner_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .horizontal_margin(1)
+        .constraints(
+            [
+                Constraint::Percentage(40),
+                Constraint::Percentage(60),
+            ].as_ref()
+        )
+        .split(chunks[1]);
+
+    let logs = create_scrolling_paragraph_block(&state.logs.join("\n"), &left_inner_chunks[0], state.horizontal_scroll);
+    let chat = create_scrolling_paragraph_block(&state.chat.join("\n"), &left_inner_chunks[1], state.horizontal_scroll);
     
+
     let player_list_block = Block::default()
         .title("Players")
         .borders(Borders::ALL);
-
     let player_list = Paragraph::new(state.players.join("\n"))
         .block(player_list_block)
         .alignment(Alignment::Left);
 
-
-    let chat_block = Block::default()
-        .title("Chat")
+    let message_out_block = Block::default()
+        .title("Command Output")
         .borders(Borders::ALL);
-
-    let chat_block_lines = chat_block.inner(inner_chunks[0]).height as i16;
-    let chat_scroll_offset = (state.logs.len() as i16 - chat_block_lines).max(0);
-
-
-    let chat = Paragraph::new(state.chat.join("\n"))
-        .block(chat_block)
-        .wrap(Wrap { trim: false }).
-        scroll((chat_scroll_offset as u16, 0))
-        .alignment(Alignment::Left);
-
-
-    let logs_block = Block::default()
-        .title("Logs")
-        .borders(Borders::ALL);
-
-    let logs_block_lines = logs_block.inner(inner_chunks[0]).height as i16;
-    let logs_scroll_offset = (state.logs.len() as i16 - logs_block_lines).max(0);
-
-    let logs = Paragraph::new(state.logs.join("\n"))
-        .block(logs_block)
+    let message_out = Paragraph::new(state.stdout.clone())
+        .block(message_out_block)
         .wrap(Wrap { trim: false })
-        .scroll((logs_scroll_offset as u16, 0))
         .alignment(Alignment::Left);
+
 
     let message_block = Block::default()
         .title("")
         .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT);
-
     let mut message = state.message_box.clone();
     message.push('▏');
-
     let message = Paragraph::new(message)
         .block(message_block)
         .alignment(Alignment::Left);
 
-    f.render_widget(player_list, chunks[1]);
-    f.render_widget(logs, inner_chunks[0]);
-    f.render_widget(chat, inner_chunks[1]);
-    f.render_widget(message, inner_chunks[2]);
+    f.render_widget(player_list, right_inner_chunks[0]);
+    f.render_widget(message_out, right_inner_chunks[1]);
+    f.render_widget(logs, left_inner_chunks[0]);
+    f.render_widget(chat, left_inner_chunks[1]);
+    f.render_widget(message, left_inner_chunks[2]);
+}
+
+fn create_scrolling_paragraph_block(content: &String, area: &Rect, horizontal_scroll: u16) -> Paragraph<'static> {
+    let block = Block::default()
+        .title("Chat")
+        .borders(Borders::ALL);
+
+    let block_lines = block.inner(*area).height as i16;
+    let mut content_lines: i16 = 0;
+    content.chars().for_each(|c| {if c == '\n' { content_lines += 1;} else {}});
+
+    let chat_scroll_offset = (content_lines - block_lines).max(0);
+
+    let chat = Paragraph::new(content.clone())
+        .block(block)
+        // .wrap(Wrap { trim: false })
+        .scroll((chat_scroll_offset as u16, horizontal_scroll))
+        .alignment(Alignment::Left);
+
+    return chat
 }

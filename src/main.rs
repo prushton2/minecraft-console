@@ -15,6 +15,7 @@ mod log_manager;
 
 fn main() -> Result<(), io::Error> {
     // setup terminal
+
     enable_raw_mode()?;
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
@@ -22,24 +23,31 @@ fn main() -> Result<(), io::Error> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut logger = log_manager::new("itzg/minecraft-server", "minecraft-mc-srv").unwrap();
-
+    let _ = logger.process();
+    
     let mut uistate = ui::UIState {
-        players: vec!["Encursed", "AmazingLex52", "Remixalotl"],
-        logs: vec!["Log_1", "Log_2"],
-        chat: vec!["Hello", "There", "Whats", "Up"],
-        message_box: "/execute as AmazingLex52 run say Hello".to_owned(),
+        players: vec![],
+        logs: vec![],
+        chat: vec![],
+        horizontal_scroll: 0,
+        stdout: "".to_owned(),
+        message_box: "list".to_owned(),
     };
-
-    uistate.players = logger.fetch_players();
-    // let mut clipboard = Clipboard::new()?;
-
+    
+    let mut iteration = 0;
     loop {
+        if iteration % 10 == 0 {
+            iteration = 10;
+            let _ = logger.process();
+
+            uistate.logs = logger.get_logs();
+            uistate.chat = logger.get_chat();
+            uistate.players = logger.get_players();
+            uistate.stdout = logger.get_command_output();
+        }
         terminal.draw(|f| ui::ui(f, &uistate))?;  // Draw UI
-        if event::poll(Duration::from_millis(100))? {
+        if event::poll(Duration::from_millis(10))? {
             if let Event::Key(KeyEvent {code, modifiers, ..}) = event::read()? {
-                // println!("Full key event:");
-                // println!("  Code: {:?}", code);
-                // println!("  Modifiers: {:?} (bits: {})", modifiers, modifiers.bits());
                 match (code, modifiers) {
                     (KeyCode::Esc, KeyModifiers::NONE) => {
                         break
@@ -68,15 +76,26 @@ fn main() -> Result<(), io::Error> {
                     (KeyCode::Char(c), KeyModifiers::SHIFT) => {
                         uistate.message_box.push(c.to_ascii_uppercase())
                     }
+
+                    (KeyCode::Left, KeyModifiers::SHIFT) => {
+                        if uistate.horizontal_scroll < 10 {
+                            uistate.horizontal_scroll = 0;
+                        } else {
+                            uistate.horizontal_scroll -= 10;
+                        }
+                    }
+                    (KeyCode::Right, KeyModifiers::SHIFT) => {
+                        if uistate.horizontal_scroll > u16::MAX - 10 {
+                            uistate.horizontal_scroll = u16::MAX;
+                        } else {
+                            uistate.horizontal_scroll += 10;
+                        }
+                    }
                     
                     (KeyCode::Enter, _) => {
-                        // send message
+                        logger.send_message(&uistate.message_box);
                         uistate.message_box = String::from("");
                     }
-
-                    // (KeyCode::Char('v'), KeyModifiers::CONTROL) => {
-                    //     uistate.message_box.push_str(clipboard.get_text().unwrap().as_str())
-                    // }
                     _ => {
                         uistate.message_box.push('_');
                     }
@@ -84,6 +103,7 @@ fn main() -> Result<(), io::Error> {
             }
         }
         thread::sleep(Duration::from_millis(10));
+        iteration += 1;
     }
 
 
