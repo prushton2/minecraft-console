@@ -31,7 +31,7 @@ fn main() -> Result<(), io::Error> {
         chat: vec![],
         horizontal_scroll: 0,
         stdout: "".to_owned(),
-        message_box: "list".to_owned(),
+        message_box: "".to_owned(),
     };
     
     let mut iteration = 0;
