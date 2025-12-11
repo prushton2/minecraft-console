@@ -116,5 +116,9 @@ fn main() -> Result<(), io::Error> {
     )?;
     terminal.show_cursor()?;
 
+    if uistate.stdout != "" {
+        println!("Command Output:\n{}", uistate.stdout);
+    }
+
     Ok(())
 }
