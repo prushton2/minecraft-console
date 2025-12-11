@@ -37,8 +37,8 @@ fn main() -> Result<(), io::Error> {
     
     let mut iteration = 0;
     loop {
-        if iteration % 10 == 0 {
-            iteration = 10;
+        if iteration % 100 == 0 {
+            iteration = 0;
             let _ = logger.process();
 
             uistate.logs = logger.get_logs();
@@ -47,7 +47,7 @@ fn main() -> Result<(), io::Error> {
             uistate.stdout = logger.get_command_output();
         }
         terminal.draw(|f| ui::ui(f, &uistate))?;  // Draw UI
-        if event::poll(Duration::from_millis(10))? {
+        if event::poll(Duration::from_millis(1))? {
             if let Event::Key(KeyEvent {code, modifiers, ..}) = event::read()? {
                 match (code, modifiers) {
                     (KeyCode::Esc, KeyModifiers::NONE) => {
@@ -118,7 +118,7 @@ fn main() -> Result<(), io::Error> {
                 }
             }
         }
-        thread::sleep(Duration::from_millis(10));
+        thread::sleep(Duration::from_millis(1));
         iteration += 1;
     }
 
