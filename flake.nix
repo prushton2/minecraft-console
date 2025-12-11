@@ -18,6 +18,7 @@
           openssl
           pkg-config
           rustup
+          gnumake
         ];
       };
     }; /* rustup component add rust-src */
