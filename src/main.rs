@@ -30,6 +30,7 @@ fn main() -> Result<(), io::Error> {
         logs: vec![],
         chat: vec![],
         horizontal_scroll: 0,
+        vertical_scroll: 0,
         stdout: "".to_owned(),
         message_box: "".to_owned(),
     };
@@ -89,6 +90,21 @@ fn main() -> Result<(), io::Error> {
                             uistate.horizontal_scroll = u16::MAX;
                         } else {
                             uistate.horizontal_scroll += 10;
+                        }
+                    }
+
+                    (KeyCode::Down, KeyModifiers::SHIFT) => {
+                        if uistate.vertical_scroll < 10 {
+                            uistate.vertical_scroll = 0;
+                        } else {
+                            uistate.vertical_scroll -= 10;
+                        }
+                    }
+                    (KeyCode::Up, KeyModifiers::SHIFT) => {
+                        if uistate.vertical_scroll > u16::MAX - 10 {
+                            uistate.vertical_scroll = u16::MAX;
+                        } else {
+                            uistate.vertical_scroll += 10;
                         }
                     }
                     

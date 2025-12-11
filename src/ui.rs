@@ -8,7 +8,8 @@ pub struct UIState {
     pub chat: Vec<String>,
     pub message_box: String,
     pub stdout: String,
-    pub horizontal_scroll: u16
+    pub horizontal_scroll: u16,
+    pub vertical_scroll: u16
 }
 
 pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
@@ -46,8 +47,19 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
         )
         .split(chunks[1]);
 
-    let logs = create_scrolling_paragraph_block("Logs".to_owned(), &state.logs.join("\n"), &left_inner_chunks[0], state.horizontal_scroll);
-    let chat = create_scrolling_paragraph_block("Chat".to_owned(),&state.chat.join("\n"), &left_inner_chunks[1], state.horizontal_scroll);
+    let logs = create_scrolling_paragraph_block(
+        "Logs".to_owned(),
+        &state.logs.join("\n"),
+        &left_inner_chunks[0],
+        state.horizontal_scroll, state.vertical_scroll
+    );
+    
+    let chat = create_scrolling_paragraph_block(
+        "Chat".to_owned(),
+        &state.chat.join("\n"),
+        &left_inner_chunks[1],
+        state.horizontal_scroll, state.vertical_scroll
+    );
     
 
     let player_list_block = Block::default()
@@ -82,17 +94,17 @@ pub fn ui<B: Backend>(f: &mut Frame<B>, state: &UIState) {
     f.render_widget(message, left_inner_chunks[2]);
 }
 
-fn create_scrolling_paragraph_block(title: String, content: &String, area: &Rect, horizontal_scroll: u16) -> Paragraph<'static> {
+fn create_scrolling_paragraph_block(title: String, content: &String, area: &Rect, horizontal_scroll: u16, vertical_scroll: u16) -> Paragraph<'static> {
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL);
 
-    let block_lines = block.inner(*area).height as i16;
-    let mut content_lines: i16 = 1;
+    let block_lines = block.inner(*area).height as i32;
+    let mut content_lines: i32 = 1;
     content.chars().for_each(|c| {if c == '\n' { content_lines += 1;} else {}});
 
-    let chat_scroll_offset = (content_lines - block_lines).max(0);
-
+    let chat_scroll_offset = ((content_lines - block_lines) - vertical_scroll as i32).max(0);
+    
     let chat = Paragraph::new(content.clone())
         .block(block)
         // .wrap(Wrap { trim: false })
