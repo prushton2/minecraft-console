@@ -3,7 +3,7 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use tokio::time::timeout;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::process::{Command, Child};
 use async_trait::async_trait;
 
@@ -14,7 +14,7 @@ pub trait LogManager {
     fn get_logs(&self) -> Vec<String>;
     fn get_players(&self) -> Vec<String>;
     fn get_command_output(&self) -> String;
-    fn send_message(&mut self, message: &str);
+    async fn send_message(&mut self, message: &str);
 }
 
 #[derive(Debug)]
@@ -75,14 +75,14 @@ impl LogManager for DebugLogManager {
     fn get_command_output(&self) -> String {
         return "".to_string();
     }
-    fn send_message(&mut self, message: &str) {
+    async fn send_message(&mut self, message: &str) {
         self.chat.push(message.to_owned());
     }
 }
 
 pub struct ItzgLogManager {
     docker_logs: Child,
-    rcon: Option<Child>,
+    rcon: Child,
     container_name: String,
     logs: Vec<String>,
     chat: Vec<String>,
@@ -99,17 +99,14 @@ impl ItzgLogManager {
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .spawn()
-                    .unwrap()
-                ,
-            rcon: Some(
-                Command::new("docker")
-                    .args(["exec", "-it", &container_name, "rcon-cli"])
+                    .unwrap(),
+            rcon: Command::new("docker")
+                    .args(["exec", "-i", &container_name, "rcon-cli"])
                     .stdin(Stdio::piped())
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
                     .spawn()
-                    .unwrap()
-            ),
+                    .unwrap(),
             logs: vec![], 
             chat: vec![], 
             players: vec![],
@@ -167,26 +164,47 @@ impl LogManager for ItzgLogManager {
     fn get_command_output(&self) -> String {
         return self.command_stdout.clone();
     }
-    fn send_message(&mut self, message: &str) {
-        // let mut args = vec!["exec", "-it", &self.container_name, "rcon-cli"];
+    async fn send_message(&mut self, message: &str) {
+        
+        // form the command (insert /say infront if its not a command)
+        let mut args: String = String::from("");
+        if message.chars().nth(0) != Some('/') {
+            args.push_str("say ");
+        }
+        args.push_str(message);
+        args.push('\n');
 
-        // match message.chars().nth(0) {
-        //     Some('/') => {
-        //         args.extend(message.split(' '));
-        //     }
-        //     Some(_) => {
-        //         args.extend(vec!["say"]);
-        //         args.extend(message.split(' '));
-        //     }
-        //     None => {}
-        // }
 
-        // // let mut child = ;
+        let stdin = self.rcon.stdin.as_mut().expect("Bad STDIN");
+        let stdout = self.rcon.stdout.as_mut().expect("Failed to capture stdout");
 
-        // let stdout = child.stdout.take().expect("Failed to capture stdout");
-        // let mut out_reader = BufReader::new(stdout);
-        // self.command_stdout = "".to_owned();
-        // let _ = out_reader.read_to_string(&mut self.command_stdout);
+        // flush the current output
+        let mut out_reader = BufReader::new(stdout);
+        loop {
+            let mut line = String::from("");
+            let timeout = timeout(Duration::from_millis(10), out_reader.read_line(&mut line)).await;
+            if timeout.is_err() {
+                break;
+            }
+        }
+
+        let _ = stdin.write_all(&args.as_bytes()).await;
+
+        // get the current output
+        loop {
+            let mut line = vec![];
+            let timeout = timeout(Duration::from_millis(10), out_reader.read_until('>' as u8, &mut line)).await;
+            if timeout.is_err() {
+                break;
+            }
+
+            if line.ends_with(&['>' as u8]) {
+                line.pop();
+            }
+
+            self.command_stdout.push_str("\n\n");
+            self.command_stdout.push_str(&String::from_utf8(line).unwrap());
+        }
     }
 }
 
@@ -215,7 +233,11 @@ fn process_log(line: &String, players: &mut Vec<String>, chat: &mut Vec<String>,
         let time = log_captures.get(1).unwrap().as_str();
         let sender = log_captures.get(2).unwrap().as_str();
         let content = log_captures.get(3).unwrap().as_str();
-        
+
+        // rcon related logs are spammy and dont matter, just ignore them
+        if content.contains("Thread RCON Client") {
+            return
+        }
 
         // Wait! is it a join or leave message? if so, update the player list
         if sender == "Server thread/INFO" {

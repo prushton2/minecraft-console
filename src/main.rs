@@ -113,7 +113,7 @@ async fn main() -> Result<(), io::Error> {
                     }
                     
                     (KeyCode::Enter, _) => {
-                        logger.send_message(&uistate.message_box);
+                        logger.send_message(&uistate.message_box).await;
                         uistate.message_box = String::from("");
                     }
                     _ => {
