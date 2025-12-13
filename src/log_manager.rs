@@ -80,6 +80,7 @@ impl LogManager for DebugLogManager {
     }
 }
 
+#[allow(dead_code)]
 pub struct ItzgLogManager {
     docker_logs: Child,
     rcon: Child,
@@ -188,7 +189,7 @@ impl LogManager for ItzgLogManager {
             }
         }
 
-        let _ = stdin.write_all(&args.as_bytes()).await;
+        let _ = timeout(Duration::from_millis(1000), stdin.write_all(&args.as_bytes())).await;
 
         // get the current output
         loop {

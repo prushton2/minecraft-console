@@ -37,16 +37,13 @@ async fn main() -> Result<(), io::Error> {
     };
     
     let mut iteration = 0;
-    let mut i_no = 0;
     loop {
         if iteration % 100 == 0 {
             iteration = 0;
-            i_no += 1;
             let _ = logger.process().await;
 
             uistate.logs = logger.get_logs();
             uistate.chat = logger.get_chat();
-            // uistate.chat.push(format!("Iteration {}", i_no));
             uistate.players = logger.get_players();
             uistate.stdout = logger.get_command_output();
         }
