@@ -13,7 +13,8 @@ use crossterm::{
 mod ui;
 mod log_manager;
 
-fn main() -> Result<(), io::Error> {
+#[tokio::main]
+async fn main() -> Result<(), io::Error> {
     // setup terminal
 
     enable_raw_mode()?;
@@ -23,7 +24,7 @@ fn main() -> Result<(), io::Error> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut logger = log_manager::new("itzg/minecraft-server", "minecraft-mc-srv").unwrap();
-    let _ = logger.process();
+    let _ = logger.process().await;
     
     let mut uistate = ui::UIState {
         players: vec![],
@@ -36,13 +37,16 @@ fn main() -> Result<(), io::Error> {
     };
     
     let mut iteration = 0;
+    let mut i_no = 0;
     loop {
         if iteration % 100 == 0 {
             iteration = 0;
-            let _ = logger.process();
+            i_no += 1;
+            let _ = logger.process().await;
 
             uistate.logs = logger.get_logs();
             uistate.chat = logger.get_chat();
+            // uistate.chat.push(format!("Iteration {}", i_no));
             uistate.players = logger.get_players();
             uistate.stdout = logger.get_command_output();
         }
@@ -109,7 +113,7 @@ fn main() -> Result<(), io::Error> {
                     }
                     
                     (KeyCode::Enter, _) => {
-                        logger.send_message(&uistate.message_box);
+                        logger.send_message(&uistate.message_box).await;
                         uistate.message_box = String::from("");
                     }
                     _ => {
