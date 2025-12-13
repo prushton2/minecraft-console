@@ -179,6 +179,8 @@ impl LogManager for ItzgLogManager {
         let stdin = self.rcon.stdin.as_mut().expect("Bad STDIN");
         let stdout = self.rcon.stdout.as_mut().expect("Failed to capture stdout");
 
+        self.command_stdout.clear();
+
         // flush the current output
         let mut out_reader = BufReader::new(stdout);
         loop {
